@@ -1,0 +1,4 @@
+- Selalu gunakan Laravel Eloquent ORM, hindari penggunaan Raw DB query.
+- Jangan pernah merubah file di folder config/ atau app/Providers/ tanpa persetujuan Tech Lead.
+- Semua business logic wajib ditaruh di folder app/Services/, jangan menumpuk logic di Controller.
+- Ikuti standar penulisan PSR-12 dan pastikan kode lolos Laravel Pint.
