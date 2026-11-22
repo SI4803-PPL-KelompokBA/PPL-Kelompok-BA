@@ -32,27 +32,28 @@ class TargetController extends Controller
                 $target = (float) ($land->target_pengurangan_emisi ?? 0);
 
                 $reduction = null;
-
-                if ($baseline !== null && (float) $baseline > 0) {
-                    $currentValue = (float) ($current ?? 0);
-
-                    $reduction = (
-                        ((float) $baseline - $currentValue)
-                        / (float) $baseline
-                    ) * 100;
-                }
-
                 $progress = null;
 
-                if ($reduction !== null && $target > 0) {
-                    $progress = max(
-                        0,
-                        min(100, ($reduction / $target) * 100)
-                    );
+                if (
+                    $baseline !== null &&
+                    $current !== null &&
+                    (float) $baseline > 0
+                ) {
+                    $reduction = (
+                        ((float) $baseline - (float) $current)
+                        / (float) $baseline
+                    ) * 100;
+
+                    if ($target > 0) {
+                        $progress = max(
+                            0,
+                            min(100, ($reduction / $target) * 100)
+                        );
+                    }
                 }
 
                 $land->baseline_emission = $baseline;
-                $land->current_emission = $current ?? 0;
+                $land->current_emission = $current;
                 $land->reduction_percentage = $reduction;
                 $land->progress_percentage = $progress;
 
@@ -66,24 +67,37 @@ class TargetController extends Controller
         ));
     }
 
+    /**
+     * CREATE dan UPDATE target.
+     * Jika target belum ada, proses ini membuat target.
+     * Jika target sudah ada, proses ini memperbarui target.
+     */
     public function update(Request $request, Land $land)
     {
-        // Validasi menggunakan error bag khusus setiap lahan
-        $validated = $request->validateWithBag('target_' . $land->id, [
-            'target_pengurangan_emisi' => [
-                'required',
-                'numeric',
-                'between:0,100',
+        $validated = $request->validateWithBag(
+            'target_' . $land->id,
+            [
+                'target_pengurangan_emisi' => [
+                    'required',
+                    'numeric',
+                    'gt:0',
+                    'lte:100',
+                ],
+                'year' => [
+                    'nullable',
+                    'integer',
+                    'min:2000',
+                    'max:' . (now()->year + 10),
+                ],
             ],
-            'year' => [
-                'nullable',
-                'integer',
-                'min:2000',
-                'max:' . (now()->year + 10),
-            ],
-        ]);
+            [
+                'target_pengurangan_emisi.required' => 'Target wajib diisi.',
+                'target_pengurangan_emisi.numeric' => 'Target harus berupa angka.',
+                'target_pengurangan_emisi.gt' => 'Target harus lebih dari 0%.',
+                'target_pengurangan_emisi.lte' => 'Target maksimal 100%.',
+            ]
+        );
 
-        // Simpan target pengurangan emisi
         $land->update([
             'target_pengurangan_emisi' =>
                 $validated['target_pengurangan_emisi'],
@@ -91,8 +105,25 @@ class TargetController extends Controller
 
         return redirect()
             ->route('esg.targets.index', [
+                'year' => $validated['year'] ?? now()->year,
+            ])
+            ->with('success', 'Target pengurangan emisi berhasil disimpan.');
+    }
+
+    /**
+     * DELETE target.
+     * Data kebun dan data emisi tetap dipertahankan.
+     */
+    public function destroy(Request $request, Land $land)
+    {
+        $land->update([
+            'target_pengurangan_emisi' => null,
+        ]);
+
+        return redirect()
+            ->route('esg.targets.index', [
                 'year' => $request->input('year', now()->year),
             ])
-            ->with('success', 'Target pengurangan emisi berhasil diperbarui.');
+            ->with('success', 'Target pengurangan emisi berhasil dihapus.');
     }
 }
