@@ -17,8 +17,17 @@ Route::middleware('auth')->group(function () {
     // ---------- DATA INPUTTER ----------
     Route::middleware('role:data_inputter')->prefix('inputter')->name('inputter.')->group(function () {
         Route::get('emissions', [EmissionController::class, 'index'])->name('emissions.index');
+
         Route::get('emissions/{kategori}/create', [EmissionController::class, 'create'])->name('emissions.create');
+
         Route::post('emissions/{kategori}', [EmissionController::class, 'store'])->name('emissions.store');
+
+        // ---------- PBI-06: UPLOAD / GANTI BUKTI ----------
+        Route::patch(
+            'emissions/{emission}/bukti',
+            [EmissionController::class, 'updateBukti']
+        )->name('emissions.bukti.update');
+
         Route::delete('emissions/{emission}', [EmissionController::class, 'destroy'])->name('emissions.destroy');
     });
 
