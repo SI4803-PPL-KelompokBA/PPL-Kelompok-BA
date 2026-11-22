@@ -16,19 +16,28 @@ Route::middleware('auth')->group(function () {
 
     // ---------- DATA INPUTTER ----------
     Route::middleware('role:data_inputter')->prefix('inputter')->name('inputter.')->group(function () {
-        Route::get('emissions', [EmissionController::class, 'index'])->name('emissions.index');
+        Route::get('emissions', [EmissionController::class, 'index'])
+            ->name('emissions.index');
 
-        Route::get('emissions/{kategori}/create', [EmissionController::class, 'create'])->name('emissions.create');
+        Route::get('emissions/{kategori}/create', [EmissionController::class, 'create'])
+            ->name('emissions.create');
 
-        Route::post('emissions/{kategori}', [EmissionController::class, 'store'])->name('emissions.store');
+        Route::post('emissions/{kategori}', [EmissionController::class, 'store'])
+            ->name('emissions.store');
+
+        // ---------- EDIT DATA EMISI ----------
+        Route::get('emissions/{emission}/edit', [EmissionController::class, 'edit'])
+            ->name('emissions.edit');
+
+        Route::put('emissions/{emission}', [EmissionController::class, 'update'])
+            ->name('emissions.update');
 
         // ---------- PBI-06: UPLOAD / GANTI BUKTI ----------
-        Route::patch(
-            'emissions/{emission}/bukti',
-            [EmissionController::class, 'updateBukti']
-        )->name('emissions.bukti.update');
+        Route::patch('emissions/{emission}/bukti', [EmissionController::class, 'updateBukti'])
+            ->name('emissions.bukti.update');
 
-        Route::delete('emissions/{emission}', [EmissionController::class, 'destroy'])->name('emissions.destroy');
+        Route::delete('emissions/{emission}', [EmissionController::class, 'destroy'])
+            ->name('emissions.destroy');
     });
 
     // ---------- ESG OFFICER: tiap fitur punya file sendiri di routes/esg/ ----------

@@ -21,11 +21,107 @@ class EmissionController extends Controller
         return $cfg;
     }
 
+    private function validationRules(array $cfg): array
+    {
+        $rules = [
+            'land_id' => [
+                'required',
+                Rule::exists('lands', 'id')
+                    ->where('status_operasional', 'aktif'),
+            ],
+            'emission_factor_id' => [
+                'required',
+                Rule::exists('emission_factors', 'id')
+                    ->where('kategori', $cfg['faktor_kategori']),
+            ],
+            'tanggal_aktivitas' => [
+                'required',
+                'date',
+                'before_or_equal:today',
+            ],
+            'bukti_dokumen' => [
+                'nullable',
+                'file',
+                'mimes:pdf,jpg,jpeg,png',
+                'max:2048',
+            ],
+            'detail' => ['nullable', 'array'],
+        ];
+
+        if (!isset($cfg['jumlah_dari'])) {
+            $rules['jumlah_penggunaan'] = [
+                'required',
+                'numeric',
+                'gt:0',
+            ];
+        }
+
+        foreach ($cfg['extra'] as $field) {
+            $fieldRules = match ($field['type']) {
+                'number' => ['numeric', 'gt:0'],
+                'select' => [Rule::in($field['options'])],
+                default => ['string', 'max:255'],
+            };
+
+            $rules['detail.' . $field['name']] = array_merge(
+                [$field['required'] ? 'required' : 'nullable'],
+                $fieldRules
+            );
+        }
+
+        return $rules;
+    }
+
+    private function emissionAttributes(
+        array $data,
+        string $kategori,
+        array $cfg
+    ): array {
+        $detail = $data['detail'] ?? [];
+
+        $jumlah = isset($cfg['jumlah_dari'])
+            ? array_reduce(
+                $cfg['jumlah_dari'],
+                fn ($total, $key) => $total * (float) $detail[$key],
+                1
+            )
+            : (float) $data['jumlah_penggunaan'];
+
+        $factor = EmissionFactor::where(
+            'kategori',
+            $cfg['faktor_kategori']
+        )->findOrFail($data['emission_factor_id']);
+
+        return [
+            'land_id' => $data['land_id'],
+            'kategori_aktivitas' => $kategori,
+            'emission_factor_id' => $factor->id,
+            'jumlah_penggunaan' => round($jumlah, 4),
+            'total_emisi_kotor' => round(
+                $jumlah * $factor->nilai_emisi,
+                4
+            ),
+            'detail_tambahan' => array_filter(
+                $detail,
+                fn ($value) => $value !== null && $value !== ''
+            ),
+            'tanggal_aktivitas' => $data['tanggal_aktivitas'],
+        ];
+    }
+
     public function index(Request $request)
     {
         $emissions = Emission::with(['land', 'factor'])
-            ->when($request->kategori, fn ($q, $v) => $q->where('kategori_aktivitas', $v))
-            ->when($request->land_id, fn ($q, $v) => $q->where('land_id', $v))
+            ->when(
+                $request->kategori,
+                fn ($query, $value) =>
+                    $query->where('kategori_aktivitas', $value)
+            )
+            ->when(
+                $request->land_id,
+                fn ($query, $value) =>
+                    $query->where('land_id', $value)
+            )
             ->latest('tanggal_aktivitas')
             ->latest('id')
             ->paginate(15)
@@ -33,7 +129,7 @@ class EmissionController extends Controller
 
         return view('inputter.emissions.index', [
             'emissions' => $emissions,
-            'lands'     => Land::orderBy('nama_lahan')->get(),
+            'lands' => Land::orderBy('nama_lahan')->get(),
             'kategoris' => config('cbam.kategori'),
         ]);
     }
@@ -44,106 +140,47 @@ class EmissionController extends Controller
 
         return view('inputter.emissions.create', [
             'kategori' => $kategori,
-            'cfg'      => $cfg,
-            'lands'    => Land::where('status_operasional', 'aktif')
-                ->orderBy('nama_lahan')
-                ->get(),
-            'factors'  => EmissionFactor::where('kategori', $cfg['faktor_kategori'])
-                ->orderBy('nama_faktor')
-                ->get(),
+            'cfg' => $cfg,
+            'lands' => Land::where(
+                'status_operasional',
+                'aktif'
+            )->orderBy('nama_lahan')->get(),
+            'factors' => EmissionFactor::where(
+                'kategori',
+                $cfg['faktor_kategori']
+            )->orderBy('nama_faktor')->get(),
+            'emission' => null,
+            'isEdit' => false,
         ]);
     }
 
     public function store(Request $request, string $kategori)
-    {
-        $cfg = $this->cfg($kategori);
+{
+    $cfg = $this->cfg($kategori);
 
-        // Validasi data emisi dan bukti dokumen
-        $rules = [
-            'land_id' => [
-                'required',
-                Rule::exists('lands', 'id')
-                    ->where('status_operasional', 'aktif'),
-            ],
+    $data = $request->validate(
+        $this->validationRules($cfg),
+        [
+            'bukti_dokumen.mimes' =>
+                'Bukti harus berformat PDF, JPG, atau PNG.',
+            'bukti_dokumen.max' =>
+                'Ukuran bukti maksimal 2 MB.',
+            'detail.tujuan.required' =>
+                'Fasilitas pemrosesan tujuan wajib diisi.',
+        ]
+    );
 
-            'emission_factor_id' => [
-                'required',
-                Rule::exists('emission_factors', 'id')
-                    ->where('kategori', $cfg['faktor_kategori']),
-            ],
+    $attributes = $this->emissionAttributes(
+        $data,
+        $kategori,
+        $cfg
+    );
 
-            'tanggal_aktivitas' => [
-                'required',
-                'date',
-                'before_or_equal:today',
-            ],
-
-            // Validasi bukti dokumen PBI-06
-            'bukti_dokumen' => [
-                'nullable',
-                'file',
-                'mimes:pdf,jpg,jpeg,png',
-                'max:2048',
-            ],
-        ];
-
-        if (! isset($cfg['jumlah_dari'])) {
-            $rules['jumlah_penggunaan'] = [
-                'required',
-                'numeric',
-                'gt:0',
-            ];
-        }
-
-        // Validasi field tambahan berdasarkan konfigurasi kategori
-        foreach ($cfg['extra'] as $f) {
-            $r = match ($f['type']) {
-                'number' => ['numeric', 'gt:0'],
-                'select' => [Rule::in($f['options'])],
-                default  => ['string', 'max:255'],
-            };
-
-            $rules['detail.' . $f['name']] = array_merge(
-                [$f['required'] ? 'required' : 'nullable'],
-                $r
-            );
-        }
-
-        $data = $request->validate($rules, [
-            'bukti_dokumen.file'  => 'Dokumen bukti tidak valid.',
-            'bukti_dokumen.mimes' => 'Bukti harus berformat PDF, JPG, atau PNG.',
-            'bukti_dokumen.max'   => 'Ukuran bukti maksimal 2 MB.',
-        ]);
-
-        $detail = $data['detail'] ?? [];
-
-        // Menghitung jumlah penggunaan
-        // Input langsung atau hasil perkalian (misalnya jarak x muatan = ton-km)
-        $jumlah = isset($cfg['jumlah_dari'])
-            ? array_reduce(
-                $cfg['jumlah_dari'],
-                fn ($c, $k) => $c * (float) $detail[$k],
-                1
-            )
-            : (float) $data['jumlah_penggunaan'];
-
-        $factor = EmissionFactor::findOrFail($data['emission_factor_id']);
-
-        // Upload bukti dokumen ke public storage
-        $path = null;
-
-        if ($request->hasFile('bukti_dokumen')) {
-            $path = $request->file('bukti_dokumen')
-                ->store('bukti', 'public');
-
-            if (! $path) {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        'bukti_dokumen' => 'Gagal menyimpan dokumen bukti.',
-                    ]);
-            }
-        }
+    if ($request->hasFile('bukti_dokumen')) {
+        $attributes['bukti_dokumen'] = $request
+            ->file('bukti_dokumen')
+            ->store('bukti', 'public');
+    }
 
         // Simpan data emisi
         Emission::create([
@@ -162,6 +199,32 @@ class EmissionController extends Controller
             'bukti_dokumen'      => $path,
             'tanggal_aktivitas'  => $data['tanggal_aktivitas'],
         ]);
+
+        $data = $request->validate(
+            $this->validationRules($cfg),
+            [
+                'bukti_dokumen.mimes' =>
+                    'Bukti harus berformat PDF, JPG, atau PNG.',
+                'bukti_dokumen.max' =>
+                    'Ukuran bukti maksimal 2 MB.',
+                'detail.tujuan.required' =>
+                    'Fasilitas pemrosesan tujuan wajib diisi.',
+            ]
+        );
+
+        $attributes = $this->emissionAttributes(
+            $data,
+            $kategori,
+            $cfg
+        );
+
+        if ($request->hasFile('bukti_dokumen')) {
+            $attributes['bukti_dokumen'] = $request
+                ->file('bukti_dokumen')
+                ->store('bukti', 'public');
+        }
+
+        Emission::create($attributes);
 
         return redirect()
             ->route('inputter.emissions.index')
@@ -210,7 +273,6 @@ class EmissionController extends Controller
                 'bukti_dokumen' => $pathBaru,
             ]);
         } catch (\Throwable $exception) {
-            // Hapus file baru jika proses database gagal
             Storage::disk('public')->delete($pathBaru);
 
             throw $exception;
@@ -229,7 +291,6 @@ class EmissionController extends Controller
             Storage::disk('public')->delete($pathLama);
         }
 
-        // Pesan berdasarkan kondisi bukti sebelumnya
         $pesan = $pathLama
             ? 'Bukti dokumen berhasil diganti.'
             : 'Bukti dokumen berhasil diunggah.';
@@ -238,18 +299,89 @@ class EmissionController extends Controller
     }
 
     /**
-     * Menghapus data emisi beserta dokumen buktinya.
+     * Menampilkan form untuk mengedit data emisi.
      */
-    public function destroy(Emission $emission)
+    public function edit(Emission $emission)
     {
-        // Hapus file bukti dari public storage
-        if ($emission->bukti_dokumen) {
-            Storage::disk('public')->delete($emission->bukti_dokumen);
+        $kategori = $emission->kategori_aktivitas;
+        $cfg = $this->cfg($kategori);
+
+        return view('inputter.emissions.create', [
+            'kategori' => $kategori,
+            'cfg' => $cfg,
+            'lands' => Land::where(
+                'status_operasional',
+                'aktif'
+            )->orderBy('nama_lahan')->get(),
+            'factors' => EmissionFactor::where(
+                'kategori',
+                $cfg['faktor_kategori']
+            )->orderBy('nama_faktor')->get(),
+            'emission' => $emission->load(['land', 'factor']),
+            'isEdit' => true,
+        ]);
+    }
+
+    /**
+     * Memperbarui data emisi.
+     */
+    public function update(Request $request, Emission $emission)
+    {
+        $kategori = $emission->kategori_aktivitas;
+        $cfg = $this->cfg($kategori);
+
+        $data = $request->validate(
+            $this->validationRules($cfg),
+            [
+                'bukti_dokumen.mimes' =>
+                    'Bukti harus berformat PDF, JPG, atau PNG.',
+                'bukti_dokumen.max' =>
+                    'Ukuran bukti maksimal 2 MB.',
+                'detail.tujuan.required' =>
+                    'Fasilitas pemrosesan tujuan wajib diisi.',
+            ]
+        );
+
+        $attributes = $this->emissionAttributes(
+            $data,
+            $kategori,
+            $cfg
+        );
+
+        $oldDocument = $emission->bukti_dokumen;
+
+        if ($request->hasFile('bukti_dokumen')) {
+            $attributes['bukti_dokumen'] = $request
+                ->file('bukti_dokumen')
+                ->store('bukti', 'public');
         }
 
-        // Hapus data emisi
-        $emission->delete();
+        $emission->update($attributes);
 
-        return back()->with('status', 'Data dihapus.');
+        if (
+            $request->hasFile('bukti_dokumen') &&
+            $oldDocument
+        ) {
+            Storage::disk('public')->delete($oldDocument);
+        }
+
+        return redirect()
+            ->route('inputter.emissions.index')
+            ->with('status', "Data {$cfg['label']} berhasil diperbarui.");
+    }
+
+    public function destroy(Emission $emission)
+{
+    // Hapus dokumen bukti jika tersedia
+    if ($emission->bukti_dokumen) {
+        Storage::disk('public')->delete($emission->bukti_dokumen);
+    }
+
+    // Hapus data emisi
+    $emission->delete();
+
+    return redirect()
+        ->route('inputter.emissions.index')
+        ->with('status', 'Data emisi berhasil dihapus.');
     }
 }

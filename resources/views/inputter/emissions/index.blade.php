@@ -1,227 +1,297 @@
+
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            Riwayat Input Emisi
-        </h2>
+        <div class="flex flex-col gap-1">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                Riwayat Input Emisi
+            </h2>
+            <p class="text-sm text-gray-500">
+                Kelola dan pantau seluruh aktivitas pencatatan emisi perkebunan.
+            </p>
+        </div>
     </x-slot>
 
-    <div class="py-8 max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-4">
+    <div class="py-8 max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
         <x-flash />
 
-        {{-- Tombol Input Berdasarkan Kategori --}}
-        <div class="flex flex-wrap gap-2">
-            @foreach ($kategoris as $slug => $k)
-                <a
-                    href="{{ route('inputter.emissions.create', $slug) }}"
-                    class="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm"
-                >
-                    + {{ $k['label'] }}
-                </a>
-            @endforeach
+        {{-- Tambah Aktivitas Emisi --}}
+        <div class="bg-white border border-gray-100 shadow-sm rounded-xl p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h3 class="font-semibold text-gray-800">
+                        Tambah Aktivitas Emisi
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Pilih kategori aktivitas untuk mulai mencatat data.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    @foreach ($kategoris as $slug => $category)
+                        <a
+                            href="{{ route('inputter.emissions.create', $slug) }}"
+                            class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
+                        >
+                            + {{ $category['label'] }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
         </div>
 
         {{-- Filter Data --}}
-        <form method="GET" class="flex flex-wrap gap-2">
+        <div class="bg-white border border-gray-100 shadow-sm rounded-xl p-5">
+            <h3 class="font-semibold text-gray-800 mb-4">
+                Filter Data
+            </h3>
 
-            <select
-                name="kategori"
-                class="border-gray-300 rounded-md text-sm"
-            >
-                <option value="">Semua kategori</option>
+            <form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <select
+                    name="kategori"
+                    class="border-gray-300 rounded-lg text-sm"
+                >
+                    <option value="">Semua kategori</option>
 
-                @foreach ($kategoris as $slug => $k)
-                    <option
-                        value="{{ $slug }}"
-                        @selected(request('kategori') === $slug)
+                    @foreach ($kategoris as $slug => $category)
+                        <option
+                            value="{{ $slug }}"
+                            @selected(request('kategori') === $slug)
+                        >
+                            {{ $category['label'] }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <select
+                    name="land_id"
+                    class="border-gray-300 rounded-lg text-sm"
+                >
+                    <option value="">Semua lahan</option>
+
+                    @foreach ($lands as $land)
+                        <option
+                            value="{{ $land->id }}"
+                            @selected(request('land_id') == $land->id)
+                        >
+                            {{ $land->nama_lahan }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <div class="flex gap-2">
+                    <button
+                        type="submit"
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg"
                     >
-                        {{ $k['label'] }}
-                    </option>
-                @endforeach
-            </select>
+                        Terapkan Filter
+                    </button>
 
-            <select
-                name="land_id"
-                class="border-gray-300 rounded-md text-sm"
-            >
-                <option value="">Semua lahan</option>
-
-                @foreach ($lands as $l)
-                    <option
-                        value="{{ $l->id }}"
-                        @selected(request('land_id') == $l->id)
+                    <a
+                        href="{{ route('inputter.emissions.index') }}"
+                        class="px-4 py-2 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
                     >
-                        {{ $l->nama_lahan }}
-                    </option>
-                @endforeach
-            </select>
-
-            <x-secondary-button type="submit">
-                Filter
-            </x-secondary-button>
-
-        </form>
-
-        {{-- Tabel Riwayat Emisi --}}
-        <div class="bg-white shadow sm:rounded-lg overflow-x-auto">
-
-            <table class="min-w-full text-sm">
-
-                <thead class="bg-gray-50 text-left">
-                    <tr>
-                        <th class="p-3">Tanggal</th>
-                        <th class="p-3">Lahan</th>
-                        <th class="p-3">Kategori</th>
-                        <th class="p-3">Faktor</th>
-                        <th class="p-3 text-right">Jumlah</th>
-                        <th class="p-3 text-right">Emisi (kg CO₂e)</th>
-                        <th class="p-3">Bukti</th>
-                        <th class="p-3">Aksi</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-
-                    @forelse ($emissions as $e)
-
-                        <tr class="border-t">
-
-                            {{-- Tanggal Aktivitas --}}
-                            <td class="p-3">
-                                {{ $e->tanggal_aktivitas->format('d/m/Y') }}
-                            </td>
-
-                            {{-- Nama Lahan --}}
-                            <td class="p-3">
-                                {{ $e->land->nama_lahan }}
-                            </td>
-
-                            {{-- Kategori Aktivitas --}}
-                            <td class="p-3">
-                                {{ $kategoris[$e->kategori_aktivitas]['label'] ?? $e->kategori_aktivitas }}
-                            </td>
-
-                            {{-- Faktor Emisi --}}
-                            <td class="p-3">
-                                {{ $e->factor->nama_faktor }}
-                            </td>
-
-                            {{-- Jumlah Penggunaan --}}
-                            <td class="p-3 text-right">
-                                {{ number_format($e->jumlah_penggunaan, 2) }}
-                            </td>
-
-                            {{-- Total Emisi --}}
-                            <td class="p-3 text-right {{ $e->total_emisi_kotor < 0 ? 'text-green-600' : '' }}">
-                                {{ number_format($e->total_emisi_kotor, 2) }}
-                            </td>
-
-                            {{-- Bukti Dokumen --}}
-                            <td class="p-3 min-w-48">
-
-                                {{-- Jika bukti sudah tersedia --}}
-                                @if ($e->bukti_dokumen)
-
-                                    <a
-                                        class="text-indigo-600 underline block mb-2"
-                                        href="{{ Storage::url($e->bukti_dokumen) }}"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        Lihat bukti
-                                    </a>
-
-                                @else
-
-                                    <span class="text-gray-400 text-xs block mb-2">
-                                        Belum ada bukti
-                                    </span>
-
-                                @endif
-
-                                {{-- Form Upload / Ganti Bukti --}}
-                                <form
-                                    method="POST"
-                                    enctype="multipart/form-data"
-                                    action="{{ route('inputter.emissions.bukti.update', $e) }}"
-                                    class="space-y-2"
-                                >
-
-                                    @csrf
-                                    @method('PATCH')
-
-                                    <input
-                                        type="file"
-                                        name="bukti_dokumen"
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        required
-                                        class="block w-full text-xs text-gray-600"
-                                    >
-
-                                    <button
-                                        type="submit"
-                                        class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                                    >
-                                        {{ $e->bukti_dokumen ? 'Ganti bukti' : 'Unggah bukti' }}
-                                    </button>
-
-                                </form>
-
-                                {{-- Error Validasi Khusus Setiap Entri --}}
-                                @if ($errors->hasBag('bukti_' . $e->id))
-
-                                    <x-input-error
-                                        :messages="$errors->getBag('bukti_' . $e->id)->get('bukti_dokumen')"
-                                        class="mt-2"
-                                    />
-
-                                @endif
-
-                            </td>
-
-                            {{-- Aksi Hapus --}}
-                            <td class="p-3">
-
-                                <form
-                                    method="POST"
-                                    action="{{ route('inputter.emissions.destroy', $e) }}"
-                                    onsubmit="return confirm('Hapus data ini?')"
-                                >
-
-                                    @csrf
-                                    @method('DELETE')
-
-                                    <button class="text-red-600 hover:text-red-800">
-                                        Hapus
-                                    </button>
-
-                                </form>
-
-                            </td>
-
-                        </tr>
-
-                    @empty
-
-                        <tr>
-                            <td
-                                colspan="8"
-                                class="p-6 text-center text-gray-500"
-                            >
-                                Belum ada data.
-                            </td>
-                        </tr>
-
-                    @endforelse
-
-                </tbody>
-
-            </table>
-
+                        Reset
+                    </a>
+                </div>
+            </form>
         </div>
 
-        {{-- Pagination --}}
-        {{ $emissions->links() }}
+        {{-- Tabel Data Aktivitas Emisi --}}
+        <div class="bg-white border border-gray-100 shadow-sm rounded-xl overflow-hidden">
+            <div class="p-5 border-b border-gray-100">
+                <h3 class="font-semibold text-gray-800">
+                    Data Aktivitas Emisi
+                </h3>
+                <p class="text-sm text-gray-500 mt-1">
+                    Daftar aktivitas yang telah dicatat oleh Data Inputter.
+                </p>
+            </div>
 
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <th class="p-4 text-left">Tanggal</th>
+                            <th class="p-4 text-left">Lahan</th>
+                            <th class="p-4 text-left">Kategori</th>
+                            <th class="p-4 text-left">Kendaraan / Faktor</th>
+                            <th class="p-4 text-left">Informasi Aktivitas</th>
+                            <th class="p-4 text-right">Emisi (kg CO₂e)</th>
+                            <th class="p-4 text-center">Bukti</th>
+                            <th class="p-4 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($emissions as $emission)
+                            <tr class="hover:bg-gray-50 align-top">
+
+                                {{-- Tanggal --}}
+                                <td class="p-4 whitespace-nowrap">
+                                    {{ $emission->tanggal_aktivitas->format('d/m/Y') }}
+                                </td>
+
+                                {{-- Lahan --}}
+                                <td class="p-4">
+                                    {{ $emission->land?->nama_lahan ?? '-' }}
+                                </td>
+
+                                {{-- Kategori --}}
+                                <td class="p-4">
+                                    {{ $kategoris[$emission->kategori_aktivitas]['label'] ?? $emission->kategori_aktivitas }}
+                                </td>
+
+                                {{-- Faktor Emisi --}}
+                                <td class="p-4">
+                                    {{ $emission->factor?->nama_faktor ?? '-' }}
+
+                                    @if ($emission->factor)
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            {{ $emission->factor->nilai_emisi }}
+                                            {{ $emission->factor->satuan }}
+                                        </p>
+                                    @endif
+                                </td>
+
+                                {{-- Informasi Aktivitas --}}
+                                <td class="p-4 min-w-64">
+                                    @if ($emission->kategori_aktivitas === 'transportasi_lokal')
+                                        <div class="space-y-1">
+                                            <p>
+                                                <span class="text-gray-500">Asal:</span>
+                                                {{ data_get($emission->detail_tambahan, 'asal') ?: $emission->land?->nama_lahan ?? '-' }}
+                                            </p>
+
+                                            <p>
+                                                <span class="text-gray-500">Tujuan:</span>
+                                                {{ data_get($emission->detail_tambahan, 'tujuan') ?: '-' }}
+                                            </p>
+
+                                            <p>
+                                                <span class="text-gray-500">Jarak:</span>
+                                                {{ number_format((float) data_get($emission->detail_tambahan, 'jarak_km', 0), 2) }} km
+                                            </p>
+
+                                            <p>
+                                                <span class="text-gray-500">Muatan:</span>
+                                                {{ number_format((float) data_get($emission->detail_tambahan, 'muatan_ton', 0), 2) }} ton
+                                            </p>
+
+                                            <p class="text-xs text-indigo-600 font-medium">
+                                                {{ number_format($emission->jumlah_penggunaan, 4) }} ton-km
+                                            </p>
+                                        </div>
+                                    @else
+                                        <span class="text-gray-500">
+                                            {{ number_format($emission->jumlah_penggunaan, 2) }}
+                                        </span>
+                                    @endif
+                                </td>
+
+                                {{-- Total Emisi --}}
+                                <td class="p-4 text-right whitespace-nowrap">
+                                    <span class="font-semibold {{ $emission->total_emisi_kotor < 0 ? 'text-green-600' : 'text-gray-800' }}">
+                                        {{ number_format($emission->total_emisi_kotor, 4) }}
+                                    </span>
+                                </td>
+
+                                {{-- Bukti Dokumen --}}
+                                <td class="p-4 min-w-48">
+                                    @if ($emission->bukti_dokumen)
+                                        <a
+                                            href="{{ Storage::url($emission->bukti_dokumen) }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="text-indigo-600 hover:underline block mb-2"
+                                        >
+                                            Lihat bukti
+                                        </a>
+                                    @else
+                                        <span class="text-gray-400 text-xs block mb-2">
+                                            Belum ada bukti
+                                        </span>
+                                    @endif
+
+                                    {{-- Upload / Ganti Bukti --}}
+                                    <form
+                                        method="POST"
+                                        enctype="multipart/form-data"
+                                        action="{{ route('inputter.emissions.bukti.update', $emission) }}"
+                                        class="space-y-2"
+                                    >
+                                        @csrf
+                                        @method('PATCH')
+
+                                        <input
+                                            type="file"
+                                            name="bukti_dokumen"
+                                            accept=".pdf,.jpg,.jpeg,.png"
+                                            required
+                                            class="block w-full text-xs text-gray-600"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                                        >
+                                            {{ $emission->bukti_dokumen ? 'Ganti bukti' : 'Unggah bukti' }}
+                                        </button>
+                                    </form>
+
+                                    {{-- Error Validasi --}}
+                                    @if ($errors->hasBag('bukti_' . $emission->id))
+                                        <x-input-error
+                                            :messages="$errors->getBag('bukti_' . $emission->id)->get('bukti_dokumen')"
+                                            class="mt-2"
+                                        />
+                                    @endif
+                                </td>
+
+                                {{-- Aksi --}}
+                                <td class="p-4">
+                                    <div class="flex items-center justify-center gap-3">
+                                        <a
+                                            href="{{ route('inputter.emissions.edit', $emission) }}"
+                                            class="text-indigo-600 hover:text-indigo-800 font-medium"
+                                        >
+                                            Edit
+                                        </a>
+
+                                        <form
+                                            method="POST"
+                                            action="{{ route('inputter.emissions.destroy', $emission) }}"
+                                            onsubmit="return confirm('Apakah kamu yakin ingin menghapus data ini?')"
+                                        >
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button
+                                                type="submit"
+                                                class="text-red-600 hover:text-red-800 font-medium"
+                                            >
+                                                Hapus
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" class="p-8 text-center text-gray-500">
+                                    Belum ada aktivitas emisi yang dicatat.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Pagination --}}
+            <div class="p-4 border-t border-gray-100">
+                {{ $emissions->links() }}
+            </div>
+        </div>
     </div>
 </x-app-layout>
