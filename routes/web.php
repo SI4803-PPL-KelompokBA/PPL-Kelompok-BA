@@ -17,11 +17,23 @@ Route::middleware('auth')->group(function () {
 
     // ---------- DATA INPUTTER ----------
 
-    Route::middleware('role:data_inputter')->prefix('inputter')->name('inputter.')->group(function () {
-    Route::get('emissions', [EmissionController::class, 'index'])->name('emissions.index');
-    Route::get('emissions/{kategori}/create', [EmissionController::class, 'create'])->name('emissions.create');
-    Route::post('emissions/{kategori}', [EmissionController::class, 'store'])->name('emissions.store');
-    Route::delete('emissions/{emission}', [EmissionController::class, 'destroy'])->name('emissions.destroy');
+    Route::get('emissions', [EmissionController::class, 'index'])
+        ->name('emissions.index');
+
+    Route::get('emissions/{kategori}/create', [EmissionController::class, 'create'])
+        ->name('emissions.create');
+
+    Route::post('emissions/{kategori}', [EmissionController::class, 'store'])
+        ->name('emissions.store');
+
+    Route::get('emissions/{emission}/edit', [EmissionController::class, 'edit'])
+        ->name('emissions.edit');
+
+    Route::put('emissions/{emission}', [EmissionController::class, 'update'])
+        ->name('emissions.update');
+
+    Route::delete('emissions/{emission}', [EmissionController::class, 'destroy'])
+        ->name('emissions.destroy');
 
     Route::get('land-carbon-data', [LandCarbonDataController::class, 'index'])
         ->name('land-carbon-data.index');
