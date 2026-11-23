@@ -5,9 +5,6 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ $isEdit ? 'Edit' : 'Input' }} {{ $cfg['label'] }}
             </h2>
-            <p class="text-sm text-gray-500">
-                Catat aktivitas transportasi hasil panen menuju fasilitas pemrosesan lokal.
-            </p>
         </div>
     </x-slot>
 
@@ -57,17 +54,9 @@
                 @method('PUT')
             @endif
 
-            <div class="border-b border-gray-100 pb-4">
-                <h3 class="font-semibold text-gray-800">
-                    Informasi Aktivitas Transportasi
-                </h3>
-                <p class="text-sm text-gray-500 mt-1">
-                    Masukkan informasi asal perkebunan dan tujuan pengiriman hasil panen.
-                </p>
-            </div>
-
+            {{-- Pilih Lahan --}}
             <div>
-                <x-input-label for="land_id" value="Lahan Perkebunan" />
+                <x-input-label for="land_id" value="Lahan" />
 
                 <select
                     id="land_id"
@@ -75,7 +64,7 @@
                     required
                     class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 >
-                    <option value="">Pilih lahan perkebunan</option>
+                    <option value="">Pilih lahan</option>
 
                     @foreach ($lands as $land)
                         <option
@@ -87,13 +76,17 @@
                     @endforeach
                 </select>
 
-                <x-input-error :messages="$errors->get('land_id')" class="mt-2" />
+                <x-input-error
+                    :messages="$errors->get('land_id')"
+                    class="mt-2"
+                />
             </div>
 
+            {{-- Pilih Faktor Emisi --}}
             <div>
                 <x-input-label
                     for="emission_factor_id"
-                    :value="$cfg['faktor_label'] ?? 'Jenis kendaraan'"
+                    :value="$cfg['faktor_label'] ?? 'Faktor emisi'"
                 />
 
                 <select
@@ -104,7 +97,7 @@
                     x-on:change="nilai = parseFloat($event.target.selectedOptions[0].dataset.nilai || 0)"
                     class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 >
-                    <option value="">Pilih jenis kendaraan</option>
+                    <option value="">Pilih faktor emisi</option>
 
                     @foreach ($factors as $factor)
                         <option
@@ -118,11 +111,18 @@
                     @endforeach
                 </select>
 
-                <x-input-error :messages="$errors->get('emission_factor_id')" class="mt-2" />
+                <x-input-error
+                    :messages="$errors->get('emission_factor_id')"
+                    class="mt-2"
+                />
             </div>
 
+            {{-- Tanggal Aktivitas --}}
             <div>
-                <x-input-label for="tanggal_aktivitas" value="Tanggal Aktivitas" />
+                <x-input-label
+                    for="tanggal_aktivitas"
+                    value="Tanggal Aktivitas"
+                />
 
                 <x-text-input
                     id="tanggal_aktivitas"
@@ -136,9 +136,13 @@
                     required
                 />
 
-                <x-input-error :messages="$errors->get('tanggal_aktivitas')" class="mt-2" />
+                <x-input-error
+                    :messages="$errors->get('tanggal_aktivitas')"
+                    class="mt-2"
+                />
             </div>
 
+            {{-- Jumlah Penggunaan --}}
             @unless (isset($cfg['jumlah_dari']))
                 <div>
                     <x-input-label
@@ -150,23 +154,27 @@
                         id="jumlah_penggunaan"
                         name="jumlah_penggunaan"
                         type="number"
-                        step="any"
                         min="0.0001"
+                        step="any"
                         class="mt-1 block w-full"
                         x-model="jumlah"
                         :value="old('jumlah_penggunaan', $emission?->jumlah_penggunaan)"
                         required
                     />
 
-                    <x-input-error :messages="$errors->get('jumlah_penggunaan')" class="mt-2" />
+                    <x-input-error
+                        :messages="$errors->get('jumlah_penggunaan')"
+                        class="mt-2"
+                    />
                 </div>
             @endunless
 
+            {{-- Field Tambahan Berdasarkan Kategori --}}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 @foreach ($cfg['extra'] as $field)
                     <div class="{{ $field['name'] === 'tujuan' ? 'md:col-span-2' : '' }}">
                         <x-input-label
-                            :for="'d_'.$field['name']"
+                            :for="'d_' . $field['name']"
                             :value="$field['label']"
                         />
 
@@ -176,7 +184,7 @@
                                 name="detail[{{ $field['name'] }}]"
                                 x-model="d['{{ $field['name'] }}']"
                                 @required($field['required'])
-                                class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm"
+                                class="mt-1 block w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             >
                                 <option value="">Pilih</option>
 
@@ -191,8 +199,8 @@
                             </select>
                         @else
                             <x-text-input
-                                :id="'d_'.$field['name']"
-                                :name="'detail['.$field['name'].']'"
+                                :id="'d_' . $field['name']"
+                                :name="'detail[' . $field['name'] . ']'"
                                 :type="$field['type']"
                                 :step="$field['type'] === 'number' ? 'any' : null"
                                 :min="$field['type'] === 'number' ? '0.0001' : null"
@@ -204,13 +212,14 @@
                         @endif
 
                         <x-input-error
-                            :messages="$errors->get('detail.'.$field['name'])"
+                            :messages="$errors->get('detail.' . $field['name'])"
                             class="mt-2"
                         />
                     </div>
                 @endforeach
             </div>
 
+            {{-- Bukti Dokumen --}}
             <div>
                 <x-input-label
                     for="bukti_dokumen"
@@ -232,8 +241,9 @@
                 @if ($isEdit && $emission->bukti_dokumen)
                     <p class="text-sm mt-2">
                         Bukti saat ini:
+
                         <a
-                            href="{{ Storage::url($emission->bukti_dokumen) }}"
+                            href="{{ \Illuminate\Support\Facades\Storage::url($emission->bukti_dokumen) }}"
                             target="_blank"
                             class="text-indigo-600 underline"
                         >
@@ -242,16 +252,23 @@
                     </p>
                 @endif
 
-                <x-input-error :messages="$errors->get('bukti_dokumen')" class="mt-2" />
+                <x-input-error
+                    :messages="$errors->get('bukti_dokumen')"
+                    class="mt-2"
+                />
             </div>
 
+            {{-- Estimasi Perhitungan Emisi --}}
             <div class="rounded-xl border border-indigo-100 bg-indigo-50 p-5 space-y-3">
                 <h3 class="font-semibold text-indigo-900">
                     Estimasi Perhitungan Emisi
                 </h3>
 
                 <div class="flex justify-between text-sm">
-                    <span class="text-gray-600">Total penggunaan</span>
+                    <span class="text-gray-600">
+                        Total penggunaan
+                    </span>
+
                     <span class="font-semibold" x-text="qty.toFixed(4)"></span>
                 </div>
 
@@ -274,10 +291,12 @@
                 </div>
 
                 <p class="text-xs text-gray-500">
-                    Hasil akhir akan dihitung ulang oleh sistem berdasarkan faktor emisi yang dipilih.
+                    Hasil akhir akan dihitung ulang oleh sistem berdasarkan
+                    faktor emisi yang dipilih.
                 </p>
             </div>
 
+            {{-- Tombol Aksi --}}
             <div class="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-3 border-t border-gray-100">
                 <a
                     href="{{ route('inputter.emissions.index') }}"
@@ -290,7 +309,7 @@
                     type="submit"
                     class="inline-flex justify-center items-center px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                 >
-                    {{ $isEdit ? 'Simpan Perubahan' : 'Simpan Data Transportasi' }}
+                    {{ $isEdit ? 'Simpan Perubahan' : 'Simpan' }}
                 </button>
             </div>
         </form>

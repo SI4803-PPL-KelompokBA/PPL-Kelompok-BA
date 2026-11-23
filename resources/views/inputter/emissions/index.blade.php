@@ -186,18 +186,57 @@
                                     </span>
                                 </td>
 
-                                <td class="p-4 text-center">
+                                <td class="p-4 min-w-48">
                                     @if ($emission->bukti_dokumen)
                                         <a
                                             href="{{ Storage::url($emission->bukti_dokumen) }}"
                                             target="_blank"
-                                            class="text-indigo-600 hover:underline"
+                                            rel="noopener noreferrer"
+                                            class="text-indigo-600 hover:underline text-sm block mb-2"
                                         >
-                                            Lihat
+                                            Lihat bukti
                                         </a>
                                     @else
-                                        <span class="text-gray-400">-</span>
+                                        <span class="text-gray-400 text-sm block mb-2">
+                                            Belum ada bukti
+                                        </span>
                                     @endif
+
+                                    <form
+                                        method="POST"
+                                        enctype="multipart/form-data"
+                                        action="{{ route('inputter.emissions.bukti.update', $emission) }}"
+                                        class="space-y-2"
+                                    >
+                                        @csrf
+                                        @method('PATCH')
+
+                                        <input
+                                            type="file"
+                                            name="bukti_dokumen"
+                                            accept=".pdf,.jpg,.jpeg,.png"
+                                            required
+                                            class="block w-full text-xs text-gray-600"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                                        >
+                                            {{ $emission->bukti_dokumen ? 'Ganti bukti' : 'Unggah bukti' }}
+                                        </button>
+                                    </form>
+
+                                    @if ($errors->hasBag('bukti_' . $emission->id))
+                                        <x-input-error
+                                            :messages="$errors->getBag('bukti_' . $emission->id)->get('bukti_dokumen')"
+                                            class="mt-2"
+                                        />
+                                    @endif
+
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        PDF, JPG, atau PNG (maks. 2 MB)
+                                    </p>
                                 </td>
 
                                 <td class="p-4">
