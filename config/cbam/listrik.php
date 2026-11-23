@@ -7,5 +7,6 @@ return [
     'jumlah_label' => 'Konsumsi listrik (kWh)',
     'extra' => [
         ['name' => 'periode_tagihan', 'label' => 'Periode tagihan', 'type' => 'text', 'required' => false],
+        ['name' => 'nomor_meter', 'label' => 'Nomor meter', 'type' => 'text', 'required' => false],
     ],
 ];
