@@ -12,6 +12,9 @@ use Illuminate\Validation\Rule;
 
 class EmissionController extends Controller
 {
+    /**
+     * Mengambil konfigurasi berdasarkan kategori aktivitas.
+     */
     private function cfg(string $kategori): array
     {
         $cfg = config("cbam.kategori.$kategori");
@@ -21,6 +24,9 @@ class EmissionController extends Controller
         return $cfg;
     }
 
+    /**
+     * Menentukan aturan validasi berdasarkan kategori.
+     */
     private function validationRules(array $cfg): array
     {
         $rules = [
@@ -72,6 +78,9 @@ class EmissionController extends Controller
         return $rules;
     }
 
+    /**
+     * Menyusun atribut data emisi sebelum disimpan.
+     */
     private function emissionAttributes(
         array $data,
         string $kategori,
@@ -109,6 +118,9 @@ class EmissionController extends Controller
         ];
     }
 
+    /**
+     * Menampilkan daftar data emisi.
+     */
     public function index(Request $request)
     {
         $emissions = Emission::with(['land', 'factor'])
@@ -134,6 +146,9 @@ class EmissionController extends Controller
         ]);
     }
 
+    /**
+     * Menampilkan form input data emisi.
+     */
     public function create(string $kategori)
     {
         $cfg = $this->cfg($kategori);
@@ -154,51 +169,12 @@ class EmissionController extends Controller
         ]);
     }
 
+    /**
+     * Menyimpan data emisi baru.
+     */
     public function store(Request $request, string $kategori)
-{
-    $cfg = $this->cfg($kategori);
-
-    $data = $request->validate(
-        $this->validationRules($cfg),
-        [
-            'bukti_dokumen.mimes' =>
-                'Bukti harus berformat PDF, JPG, atau PNG.',
-            'bukti_dokumen.max' =>
-                'Ukuran bukti maksimal 2 MB.',
-            'detail.tujuan.required' =>
-                'Fasilitas pemrosesan tujuan wajib diisi.',
-        ]
-    );
-
-    $attributes = $this->emissionAttributes(
-        $data,
-        $kategori,
-        $cfg
-    );
-
-    if ($request->hasFile('bukti_dokumen')) {
-        $attributes['bukti_dokumen'] = $request
-            ->file('bukti_dokumen')
-            ->store('bukti', 'public');
-    }
-
-        // Simpan data emisi
-        Emission::create([
-            'land_id'            => $data['land_id'],
-            'kategori_aktivitas' => $kategori,
-            'emission_factor_id' => $factor->id,
-            'jumlah_penggunaan'  => $jumlah,
-            'total_emisi_kotor'  => round(
-                $jumlah * $factor->nilai_emisi,
-                4
-            ),
-            'detail_tambahan'    => array_filter(
-                $detail,
-                fn ($v) => $v !== null && $v !== ''
-            ),
-            'bukti_dokumen'      => $path,
-            'tanggal_aktivitas'  => $data['tanggal_aktivitas'],
-        ]);
+    {
+        $cfg = $this->cfg($kategori);
 
         $data = $request->validate(
             $this->validationRules($cfg),
@@ -232,14 +208,12 @@ class EmissionController extends Controller
     }
 
     /**
-     * Upload atau mengganti bukti dokumen pada data emisi yang sudah ada.
+     * Upload atau mengganti bukti dokumen pada data emisi.
      */
     public function updateBukti(Request $request, Emission $emission)
     {
-        // Error bag khusus untuk setiap entri emisi
         $errorBag = 'bukti_' . $emission->id;
 
-        // Validasi bukti dokumen
         $request->validateWithBag($errorBag, [
             'bukti_dokumen' => [
                 'required',
@@ -248,26 +222,28 @@ class EmissionController extends Controller
                 'max:2048',
             ],
         ], [
-            'bukti_dokumen.required' => 'Silakan pilih dokumen bukti.',
-            'bukti_dokumen.file'     => 'Dokumen bukti tidak valid.',
-            'bukti_dokumen.mimes'    => 'Bukti harus berformat PDF, JPG, atau PNG.',
-            'bukti_dokumen.max'      => 'Ukuran bukti maksimal 2 MB.',
+            'bukti_dokumen.required' =>
+                'Silakan pilih dokumen bukti.',
+            'bukti_dokumen.file' =>
+                'Dokumen bukti tidak valid.',
+            'bukti_dokumen.mimes' =>
+                'Bukti harus berformat PDF, JPG, atau PNG.',
+            'bukti_dokumen.max' =>
+                'Ukuran bukti maksimal 2 MB.',
         ]);
 
-        // Simpan file baru ke public storage
         $pathBaru = $request->file('bukti_dokumen')
             ->store('bukti', 'public');
 
         if (! $pathBaru) {
             return back()->withErrors([
-                'bukti_dokumen' => 'Gagal menyimpan dokumen bukti.',
+                'bukti_dokumen' =>
+                    'Gagal menyimpan dokumen bukti.',
             ], $errorBag);
         }
 
-        // Simpan path bukti lama
         $pathLama = $emission->bukti_dokumen;
 
-        // Perbarui path bukti di database
         try {
             $berhasil = $emission->update([
                 'bukti_dokumen' => $pathBaru,
@@ -282,11 +258,11 @@ class EmissionController extends Controller
             Storage::disk('public')->delete($pathBaru);
 
             return back()->withErrors([
-                'bukti_dokumen' => 'Gagal memperbarui dokumen bukti.',
+                'bukti_dokumen' =>
+                    'Gagal memperbarui dokumen bukti.',
             ], $errorBag);
         }
 
-        // Hapus file lama setelah path baru berhasil disimpan
         if ($pathLama && $pathLama !== $pathBaru) {
             Storage::disk('public')->delete($pathLama);
         }
@@ -370,18 +346,19 @@ class EmissionController extends Controller
             ->with('status', "Data {$cfg['label']} berhasil diperbarui.");
     }
 
+    /**
+     * Menghapus data emisi.
+     */
     public function destroy(Emission $emission)
-{
-    // Hapus dokumen bukti jika tersedia
-    if ($emission->bukti_dokumen) {
-        Storage::disk('public')->delete($emission->bukti_dokumen);
-    }
+    {
+        if ($emission->bukti_dokumen) {
+            Storage::disk('public')->delete($emission->bukti_dokumen);
+        }
 
-    // Hapus data emisi
-    $emission->delete();
+        $emission->delete();
 
-    return redirect()
-        ->route('inputter.emissions.index')
-        ->with('status', 'Data emisi berhasil dihapus.');
+        return redirect()
+            ->route('inputter.emissions.index')
+            ->with('status', 'Data emisi berhasil dihapus.');
     }
 }
