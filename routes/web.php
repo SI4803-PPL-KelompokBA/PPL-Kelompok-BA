@@ -60,7 +60,7 @@ Route::middleware('auth')->group(function () {
             ->name('land-carbon-data.destroy');
     });
 
-    // ---------- ESG OFFICER ----------
+    // ---------- ESG OFFICER: tiap fitur punya file sendiri di routes/esg/ ----------
     Route::middleware('role:esg_officer')->prefix('esg')->name('esg.')->group(function () {
         foreach (glob(__DIR__ . '/esg/*.php') as $file) {
             require $file;
