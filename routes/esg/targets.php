@@ -8,3 +8,6 @@ Route::get('/targets', [TargetController::class, 'index'])
 
 Route::patch('/targets/{land}', [TargetController::class, 'update'])
     ->name('targets.update');
+
+Route::delete('/targets/{land}', [TargetController::class, 'destroy'])
+    ->name('targets.destroy');
