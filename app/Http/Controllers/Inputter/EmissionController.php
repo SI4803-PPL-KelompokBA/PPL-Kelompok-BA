@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Emission;
 use App\Models\EmissionFactor;
 use App\Models\Land;
+use App\Models\LandCarbonData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -136,11 +137,27 @@ class EmissionController extends Controller
             )
             ->latest('tanggal_aktivitas')
             ->latest('id')
-            ->paginate(15)
+            ->paginate(15, ['*'], 'emission_page')
+            ->withQueryString();
+
+        $carbonData = LandCarbonData::with('land')
+            ->when(
+                $request->kategori && $request->kategori !== 'penyerapan',
+                fn ($query) => $query->where('id', 0)
+            )
+            ->when(
+                $request->land_id,
+                fn ($query, $value) =>
+                    $query->where('land_id', $value)
+            )
+            ->latest('tanggal_aktivitas')
+            ->latest('id')
+            ->paginate(15, ['*'], 'carbon_page')
             ->withQueryString();
 
         return view('inputter.emissions.index', [
             'emissions' => $emissions,
+            'carbonData' => $carbonData,
             'lands' => Land::orderBy('nama_lahan')->get(),
             'kategoris' => config('cbam.kategori'),
         ]);
