@@ -3,10 +3,10 @@
     <x-slot name="header">
         <div class="flex flex-col gap-1">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Riwayat Input Emisi
+                Riwayat Input Aktivitas
             </h2>
             <p class="text-sm text-gray-500">
-                Kelola dan pantau seluruh aktivitas pencatatan emisi perkebunan.
+                Kelola dan pantau seluruh aktivitas pencatatan emisi dan penyerapan karbon perkebunan.
             </p>
         </div>
     </x-slot>
@@ -19,7 +19,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h3 class="font-semibold text-gray-800">
-                        Tambah Aktivitas Emisi
+                        Tambah Aktivitas
                     </h3>
                     <p class="text-sm text-gray-500 mt-1">
                         Pilih kategori aktivitas untuk mulai mencatat data.
@@ -29,7 +29,9 @@
                 <div class="flex flex-wrap gap-2">
                     @foreach ($kategoris as $slug => $category)
                         <a
-                            href="{{ route('inputter.emissions.create', $slug) }}"
+                            href="{{ $slug === 'penyerapan'
+                                ? route('inputter.land-carbon-data.create')
+                                : route('inputter.emissions.create', $slug) }}"
                             class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
                         >
                             + {{ $category['label'] }}
@@ -101,7 +103,7 @@
                     Data Aktivitas Emisi
                 </h3>
                 <p class="text-sm text-gray-500 mt-1">
-                    Daftar aktivitas yang telah dicatat oleh Data Inputter.
+                    Daftar aktivitas emisi yang telah dicatat oleh Data Inputter.
                 </p>
             </div>
 
@@ -123,7 +125,6 @@
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($emissions as $emission)
                             <tr class="hover:bg-gray-50 align-top">
-
                                 <td class="p-4 whitespace-nowrap">
                                     {{ $emission->tanggal_aktivitas->format('d/m/Y') }}
                                 </td>
@@ -138,6 +139,7 @@
 
                                 <td class="p-4">
                                     {{ $emission->factor?->nama_faktor ?? '-' }}
+
                                     @if ($emission->factor)
                                         <p class="text-xs text-gray-500 mt-1">
                                             {{ $emission->factor->nilai_emisi }}
@@ -226,7 +228,6 @@
                                         </form>
                                     </div>
                                 </td>
-
                             </tr>
                         @empty
                             <tr>
@@ -239,9 +240,135 @@
                 </table>
             </div>
 
-            <div class="p-4 border-t border-gray-100">
-                {{ $emissions->links() }}
-            </div>
+            @if ($emissions->hasPages())
+                <div class="p-4 border-t border-gray-100">
+                    {{ $emissions->links() }}
+                </div>
+            @endif
         </div>
+
+        <div class="bg-white border border-gray-100 shadow-sm rounded-xl overflow-hidden">
+            <div class="p-5 border-b border-gray-100">
+                <h3 class="font-semibold text-gray-800">
+                    Riwayat Penyerapan Karbon Alam
+                </h3>
+                <p class="text-sm text-gray-500 mt-1">
+                    Daftar aktivitas penyerapan karbon alam berdasarkan lahan dan periode pencatatan.
+                </p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-600">
+                        <tr>
+                            <th class="p-4 text-left">Periode</th>
+                            <th class="p-4 text-left">Lahan</th>
+                            <th class="p-4 text-right">Pohon Ditanam</th>
+                            <th class="p-4 text-right">Luas Tanaman Penutup</th>
+                            <th class="p-4 text-left">Metode Pengolahan Tanah</th>
+                            <th class="p-4 text-right">Biochar (kg)</th>
+                            <th class="p-4 text-right">Kompos (kg)</th>
+                            <th class="p-4 text-center">Aksi</th>
+                        </tr>
+                    </thead>
+
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($carbonData as $item)
+                            <tr class="hover:bg-gray-50 align-top">
+                                <td class="p-4 whitespace-nowrap">
+                                    {{ $item->tanggal_aktivitas->format('m/Y') }}
+                                </td>
+
+                                <td class="p-4">
+                                    {{ $item->land?->nama_lahan ?? '-' }}
+                                </td>
+
+                                <td class="p-4 text-right">
+                                    {{ number_format((float) $item->trees_planted, 0, ',', '.') }}
+                                </td>
+
+                                <td class="p-4 text-right whitespace-nowrap">
+                                    {{ number_format((float) $item->cover_crop_area, 2, ',', '.') }} ha
+                                </td>
+
+                                <td class="p-4">
+                                    @switch($item->tillage_method)
+                                        @case('no_till')
+                                            Tanpa Olah Tanah
+                                            @break
+
+                                        @case('minimum_tillage')
+                                            Olah Tanah Minimum
+                                            @break
+
+                                        @case('conventional_tillage')
+                                            Olah Tanah Konvensional
+                                            @break
+
+                                        @default
+                                            {{ $item->tillage_method ?: '-' }}
+                                    @endswitch
+                                </td>
+
+                                <td class="p-4 text-right">
+                                    {{ number_format((float) $item->biochar_amount, 2, ',', '.') }}
+                                </td>
+
+                                <td class="p-4 text-right">
+                                    {{ number_format((float) $item->compost_amount, 2, ',', '.') }}
+                                </td>
+
+                                <td class="p-4">
+                                    <div class="flex items-center justify-center gap-3">
+                                        <a
+                                            href="{{ route('inputter.land-carbon-data.show', $item) }}"
+                                            class="text-gray-600 hover:text-gray-800 font-medium"
+                                        >
+                                            Detail
+                                        </a>
+
+                                        <a
+                                            href="{{ route('inputter.land-carbon-data.edit', $item) }}"
+                                            class="text-indigo-600 hover:text-indigo-800 font-medium"
+                                        >
+                                            Edit
+                                        </a>
+
+                                        <form
+                                            method="POST"
+                                            action="{{ route('inputter.land-carbon-data.destroy', $item) }}"
+                                            onsubmit="return confirm('Apakah kamu yakin ingin menghapus data penyerapan karbon alam ini?')"
+                                        >
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button
+                                                type="submit"
+                                                class="text-red-600 hover:text-red-800 font-medium"
+                                            >
+                                                Hapus
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8" class="p-8 text-center text-gray-500">
+                                    Belum ada data penyerapan karbon alam yang dicatat.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if ($carbonData->hasPages())
+                <div class="p-4 border-t border-gray-100">
+                    {{ $carbonData->links() }}
+                </div>
+            @endif
+        </div>
+
     </div>
 </x-app-layout>
